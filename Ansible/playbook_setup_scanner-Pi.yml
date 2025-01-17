@@ -1,0 +1,126 @@
+---
+
+- name: Setup Raspberry to auto-scan documents and upload to Nextcloud
+  hosts: all
+  vars:
+    user: pi
+    datafolder: "/home/pi/scan-data"
+    upload:
+      placeholder: "place"
+
+  vars_prompt:
+  - name: cloud_url
+    prompt: Enter Nextcloud URL (eg. https://yourserver.de)
+    confirm: no
+    private: no
+  - name: cloud_user
+    prompt: Enter Nextcloud User
+    confirm: no
+    private: no
+  - name: cloud_pass
+    prompt: Enter Nextcloud User password (will be saved unencrypted on the target machine)
+    confirm: no
+    private: yes
+  - name: userpass
+    prompt: Enter new user password for pi user on raspberry
+    private: yes
+    encrypt: sha512_crypt
+    confirm: yes
+    salt_size: 7
+
+
+  tasks:
+    - name: Change default password
+      become: true
+      ansible.builtin.user:
+        name: "{{ user }}"
+        password: "{{ userpass }}"
+
+    - name: Set a hostname
+      become: true
+      ansible.builtin.hostname:
+        name: ScannerPi
+
+    - name: Upgrade packages
+      become: true
+      apt:
+        upgrade: full
+        update-cache: true
+
+    - name: Install tools
+      become: true
+      ansible.builtin.apt:
+        state: present
+        update-cache: true
+        name:
+          - curl
+          - vim
+          - sane
+          - git
+          - netpbm
+          - ghostscript
+          - poppler-utils
+          - imagemagick
+          - unpaper
+          - util-linux
+          - tesseract-ocr
+          - parallel
+          - units
+          - htop
+          - bc
+          - img2pdf
+
+    - name: Git checkout
+      ansible.builtin.git:
+        repo: 'https://github.com/rocketraman/sane-scan-pdf.git'
+        dest: "/home/{{ user }}/scanner"
+        version: v1.2
+
+    - name: Ensure a locale exists
+      become: true
+      community.general.locale_gen:
+        name: de_DE.UTF-8
+        state: present
+
+    - name: Upload scan script
+      template:
+        src: scand.sh
+        dest: "/home/{{ user }}/scand.sh"
+        owner: "{{ user }}"
+        mode: "+x"
+
+    - name: Upload upload script
+      template:
+        src: uploadd.sh
+        dest: "/home/{{ user }}/uploadd.sh"
+        owner: "{{ user }}"
+        mode: "+x"
+
+    - name: Upload scan script service file
+      become: true
+      template:
+        src: scand.service
+        dest: "/etc/systemd/system/scand.service"
+
+    - name: Upload upload script service file
+      become: true
+      template:
+        src: uploadd.service
+        dest: "/etc/systemd/system/uploadd.service"
+
+    - name: Make sure scanner service unit is running
+      become: true
+      ansible.builtin.systemd:
+        enabled: yes
+        state: started
+        daemon_reload: yes
+        name: scand
+
+    - name: Make sure upload service unit is running
+      become: true
+      ansible.builtin.systemd:
+        enabled: yes
+        state: started
+        daemon_reload: yes
+        name: uploadd
+

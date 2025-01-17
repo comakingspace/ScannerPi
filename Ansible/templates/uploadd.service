@@ -1,0 +1,12 @@
+[Unit]
+Description=Script to upload and delete the scanned files.
+
+[Service]
+ExecStart=/home/{{ user }}/uploadd.sh
+Restart=always
+RestartSec=15
+TimeoutSec=120
+WatchdogSec=120
+
+[Install]
+WantedBy=multi-user.target

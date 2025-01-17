@@ -1,0 +1,12 @@
+[Unit]
+Description=Script to run the scanner.
+
+[Service]
+ExecStart=/home/{{ user }}/scand.sh
+Restart=always
+RestartSec=60
+TimeoutSec=100
+WatchdogSec=100
+
+[Install]
+WantedBy=multi-user.target
